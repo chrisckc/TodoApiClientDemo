@@ -25,7 +25,7 @@ class Program
 
     public static async Task TestApi()
     {
-        dynamic apiResponse = await GetObject(resourcePath);
+        Tuple<dynamic,string> result = await GetObject(resourcePath);
         //Setup the serializer
         JsonSerializerSettings settings = new JsonSerializerSettings {
                     ContractResolver = new CamelCasePropertyNamesContractResolver(),
@@ -34,9 +34,9 @@ class Program
                 };
         settings.Converters.Add(new StringEnumConverter());
         //Serialize the response so we can see it
-        string jsonString = JsonConvert.SerializeObject(apiResponse,settings);
+        string jsonString = JsonConvert.SerializeObject(result.Item1,settings);
         //Print it
-        Console.WriteLine("apiResponse:\r\n{0}", jsonString);
+        Console.WriteLine("Status: {0}\r\napiResponse:\r\n{1}", result.Item2 ,jsonString);
 
     }
 
@@ -45,7 +45,7 @@ class Program
     /// </summary>
     /// <param name="resourcePath"> The resource path relative to the base url.</param>
     /// <returns>A dymamic object with either a HttpClientResult property or HttpClientError property.</returns>
-    public static async Task<dynamic> GetObject(string resourcePath)
+    public static async Task<Tuple<dynamic,string>> GetObject(string resourcePath)
         {
             using (var client = new HttpClient())
             {
@@ -63,25 +63,24 @@ class Program
                     if (response.IsSuccessStatusCode)
                     {
                         dynamic apiResponse = await response.Content.ReadAsAsync<dynamic>();
-                        if (apiResponse == null) apiResponse = new ExpandoObject();
-                        apiResponse.HttpClientResult = string.Format("StatusCode: {0} '{1}'", (int)response.StatusCode, response.StatusCode);
-                        return apiResponse;
+                        // Get the string to help with testing
+                        string responseBody = await response.Content.ReadAsStringAsync();
+                        string result = string.Format("StatusCode: {0} '{1}'\r\nResponseBody:\r\n{2}", (int)response.StatusCode, response.StatusCode, responseBody);
+                        return new Tuple<dynamic,string>(apiResponse,result);
                     }
                     else
                     {
                         //Assumes that if a non success status code is encountered, the response may not always be Json
                         string responseBody = await response.Content.ReadAsStringAsync();
-                        dynamic apiResponse = new ExpandoObject();
-                        apiResponse.HttpClientError = string.Format("ERROR: StatusCode: {0} '{1}' ResponseBody: {2}", (int)response.StatusCode, response.StatusCode, responseBody);
-                        return apiResponse;
+                        string error = string.Format("ERROR: StatusCode: {0} '{1}'\r\nResponseBody:\r\n{2}", (int)response.StatusCode, response.StatusCode, responseBody);
+                        return new Tuple<dynamic,string>(null,error);
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine("Exception:\r\n{0}", ex);
-                    dynamic apiResponse = new ExpandoObject();
-                    apiResponse.HttpClientError = string.Format("Exception: {0}\r\n{1}\r\n", ex.ToString(), ex.InnerException != null ? ex.InnerException.ToString() : "");
-                    return apiResponse;
+                    string error = string.Format("Exception: {0}\r\n{1}\r\n", ex.ToString(), ex.InnerException != null ? ex.InnerException.ToString() : "");
+                    return new Tuple<dynamic,string>(null,error);;
                 }
             }
         }
