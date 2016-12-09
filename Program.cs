@@ -56,15 +56,27 @@ class Program
                 HttpResponseMessage response = null;
                 try
                 {
-                    
                     Debug.WriteLine(new Uri(client.BaseAddress, resourcePath).ToString());
-                    //Performs a Http GET request
-                    response = await client.GetAsync(resourcePath);
+                    var sw = Stopwatch.StartNew();
+
+                    // Performs a Http GET request using HttpCompletionOption.ResponseHeadersRead
+                    // So we get the response as soon as the headers have been received
+                    response = await client.GetAsync(resourcePath, HttpCompletionOption.ResponseHeadersRead);
+                    
+                    double responseMilliseconds = Math.Round(1000.0 * (double)sw.ElapsedTicks / Stopwatch.Frequency,3);
+                    Debug.WriteLine($"Response Received after: {responseMilliseconds} ms");
                     if (response.IsSuccessStatusCode)
                     {
                         dynamic apiResponse = await response.Content.ReadAsAsync<dynamic>();
+                        //dynamic apiResponse = null;
+                        
                         // Get the string to help with testing
-                        string responseBody = await response.Content.ReadAsStringAsync();
+                        //string responseBody = await response.Content.ReadAsStringAsync();
+                        string responseBody = null;
+
+                        double bodyReadMilliseconds = Math.Round(1000.0 * (double)sw.ElapsedTicks / Stopwatch.Frequency,3);
+                        Debug.WriteLine($"Body Read after: {bodyReadMilliseconds} ms");
+
                         string result = string.Format("StatusCode: {0} '{1}'\r\nResponseBody:\r\n{2}", (int)response.StatusCode, response.StatusCode, responseBody);
                         return new Tuple<dynamic,string>(apiResponse,result);
                     }
@@ -72,6 +84,8 @@ class Program
                     {
                         //Assumes that if a non success status code is encountered, the response may not always be Json
                         string responseBody = await response.Content.ReadAsStringAsync();
+                        double bodyReadMilliseconds = Math.Round(1000.0 * (double)sw.ElapsedTicks / Stopwatch.Frequency,3);
+                        Debug.WriteLine($"Body Read after: {bodyReadMilliseconds} ms");
                         string error = string.Format("ERROR: StatusCode: {0} '{1}'\r\nResponseBody:\r\n{2}", (int)response.StatusCode, response.StatusCode, responseBody);
                         return new Tuple<dynamic,string>(null,error);
                     }
